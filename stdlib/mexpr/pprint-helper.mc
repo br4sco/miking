@@ -2,6 +2,7 @@ include "char.mc"
 include "option.mc"
 include "seq.mc"
 include "string.mc"
+include "assoc.mc"
 
 let spacing = lam indent. makeSeq indent ' '
 let newline = lam indent. concat "\n" (spacing indent)
@@ -29,7 +30,8 @@ type Env = {
 
 }
 
-let emptyEnv = {nameMap = assocEmpty, strMap = assocEmpty, count = assocEmpty}
+let pprintHelperEnvEmpty =
+  {nameMap = assocEmpty, strMap = assocEmpty, count = assocEmpty}
 
 let _ppLookupName = assocLookup {eq = nameEqSym}
 let _ppLookupStr = assocLookup {eq = eqstr}
@@ -69,7 +71,7 @@ let _add : Name -> String -> Int -> Env -> Env =
 
 -- Get a string for the current name. Returns both the string and a new
 -- environment.
-let getStr : Name -> Env -> (Env, String) = lam name. lam env.
+let pprintHelperGetStr : Name -> Env -> (Env, String) = lam name. lam env.
   match _lookup name env with Some str then (env,str)
   else
     let baseStr = nameGetStr name in

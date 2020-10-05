@@ -1,4 +1,3 @@
-
 include "char.mc"
 include "option.mc"
 include "seq.mc"
@@ -7,11 +6,12 @@ include "name.mc"
 
 include "mexpr/ast.mc"
 include "mexpr/ast-builder.mc"
-
 include "mexpr/pprint-helper.mc"
 
 -- TODO Make it possible to debug the actual symbols
 
+let getStr = pprintHelperGetStr
+let envEmpty = pprintHelperEnvEmpty
 
 -- Ensure string can be parsed
 let _parserStr = lam str. lam prefix. lam cond.
@@ -625,7 +625,8 @@ lang MExprPrettyPrint =
 ---------------------------
 
 let expr2str = use MExprPrettyPrint in
-  lam expr. match pprintCode 0 emptyEnv expr with (_,str) then str else never
+  lam expr. match pprintCode 0 envEmpty expr with (_,str) then str
+            else never
 
 -----------
 -- TESTS --
