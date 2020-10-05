@@ -15,6 +15,8 @@ let incr = pprintHelperIncr
 let getStr = pprintHelperGetStr
 let envEmpty = pprintHelperEnvEmpty
 
+type Env = PPrintEnv
+
 -- Ensure string can be parsed
 let _parserStr = lam str. lam prefix. lam cond.
   if eqi (length str) 0 then concat prefix "\"\""

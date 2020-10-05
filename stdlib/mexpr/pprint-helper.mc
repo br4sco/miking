@@ -14,7 +14,7 @@ let pprintHelperIncr = lam indent. addi indent 2
 -- PRETTY PRINTING ENVIRONMENT --
 ---------------------------------
 
-type Env = {
+type PPrintEnv = {
 
   -- Used to keep track of strings assigned to names with symbols
   nameMap: AssocMap Name String,
@@ -37,7 +37,7 @@ let _ppInsertName = assocInsert {eq = nameEqSym}
 let _ppInsertStr = assocInsert {eq = eqstr}
 
 -- Look up the string associated with a name in the environment
-let _lookup : Name -> Env -> Option String = lam name. lam env.
+let _lookup : Name -> PPrintEnv -> Option String = lam name. lam env.
   match env with { nameMap = nameMap, strMap = strMap } then
     match _ppLookupName name nameMap with Some str then
       Some str
@@ -47,14 +47,14 @@ let _lookup : Name -> Env -> Option String = lam name. lam env.
   else never
 
 -- Check if a string is free in the environment.
-let _free : String -> Env -> Bool = lam str. lam env.
+let _free : String -> PPrintEnv -> Bool = lam str. lam env.
   match env with { nameMap = nameMap, strMap = strMap } then
     let f = lam _. lam v. eqstr str v in
     not (or (assocAny f nameMap) (assocAny f strMap))
   else never
 
 -- Add a binding to the environment
-let _add : Name -> String -> Int -> Env -> Env =
+let _add : Name -> String -> Int -> PPrintEnv -> PPrintEnv =
   lam name. lam str. lam i. lam env.
     let baseStr = nameGetStr name in
     match env with {nameMap = nameMap, strMap = strMap, count = count} then
@@ -69,14 +69,16 @@ let _add : Name -> String -> Int -> Env -> Env =
 
 -- Get a string for the current name. Returns both the string and a new
 -- environment.
-let pprintHelperGetStr : Name -> Env -> (Env, String) = lam name. lam env.
+let pprintHelperGetStr : Name -> PPrintEnv -> (PPrintEnv, String) =
+lam name. lam env.
   match _lookup name env with Some str then (env,str)
   else
     let baseStr = nameGetStr name in
     if _free baseStr env then (_add name baseStr 1 env, baseStr)
     else
       match env with {count = count} then
-        let start = match _ppLookupStr baseStr count with Some i then i else 1 in
+        let start = match _ppLookupStr baseStr count with Some i then i
+        else 1 in
         recursive let findFree : String -> Int -> (String, Int) =
           lam baseStr. lam i.
             let proposal = concat baseStr (int2string i) in
