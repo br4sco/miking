@@ -4,13 +4,11 @@ include "seq.mc"
 include "string.mc"
 include "assoc.mc"
 
-let spacing = lam indent. makeSeq indent ' '
-let newline = lam indent. concat "\n" (spacing indent)
+let pprintHelperSpacing = lam indent. makeSeq indent ' '
+let pprintHelperNewline = lam indent. concat "\n" (pprintHelperSpacing indent)
 
--- Set spacing on increment
-let incr = lam indent. addi indent 2
-
-let symbolDelim = "'"
+-- Set pprintHelperSpacing on increment
+let pprintHelperIncr = lam indent. addi indent 2
 
 ---------------------------------
 -- PRETTY PRINTING ENVIRONMENT --

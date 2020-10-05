@@ -10,6 +10,8 @@ include "mexpr/pprint-helper.mc"
 
 -- TODO Make it possible to debug the actual symbols
 
+let newline = pprintHelperNewline
+let incr = pprintHelperIncr
 let getStr = pprintHelperGetStr
 let envEmpty = pprintHelperEnvEmpty
 
@@ -20,15 +22,15 @@ let _parserStr = lam str. lam prefix. lam cond.
   else join [prefix, "\"", str, "\""]
 
 -- Constructor string parser translation
-let conString = lam str.
+let _conString = lam str.
   _parserStr str "#con" (lam str. is_upper_alpha (head str))
 
 -- Variable string parser translation
-let varString = lam str.
+let _varString = lam str.
   _parserStr str "#var" (lam str. is_lower_alpha (head str))
 
 -- Label string parser translation for records
-let labelString = lam str.
+let _labelString = lam str.
   _parserStr str "#label" (lam str. is_lower_alpha (head str))
 
 -- Get an optional list of tuple expressions for a record. If the record does
@@ -63,7 +65,7 @@ lang VarPrettyPrint = VarAst
 
   sem pprintCode (indent : Int) (env: Env) =
   | TmVar {ident = ident} ->
-    match getStr ident env with (env,str) then (env,varString str) else never
+    match getStr ident env with (env,str) then (env,_varString str) else never
 end
 
 lang AppPrettyPrint = AppAst
@@ -105,7 +107,7 @@ lang FunPrettyPrint = FunAst
   sem pprintCode (indent : Int) (env: Env) =
   | TmLam t ->
     match getStr t.ident env with (env,str) then
-      let ident = varString str in
+      let ident = _varString str in
       let tpe =
         match t.tpe with Some t1 then
           concat " : " (getTypeStringCode indent t1)
@@ -139,7 +141,7 @@ lang RecordPrettyPrint = RecordAst
         assocMapAccum {eq=eqstr}
           (lam env. lam k. lam v.
              match pprintCode innerIndent env v with (env, str) then
-               (env, join [labelString k, " =", newline innerIndent, str])
+               (env, join [_labelString k, " =", newline innerIndent, str])
              else never)
            env t.bindings
       with (env, bindMap) then
@@ -155,7 +157,7 @@ lang RecordPrettyPrint = RecordAst
       match pprintCode ii env t.value with (env,value) then
         (env,join ["{ ", rec, newline i,
                    "with", newline i,
-                   labelString t.key, " =", newline ii, value, " }"])
+                   _labelString t.key, " =", newline ii, value, " }"])
       else never
     else never
 end
@@ -170,7 +172,7 @@ lang LetPrettyPrint = LetAst
   sem pprintCode (indent : Int) (env: Env) =
   | TmLet t ->
     match getStr t.ident env with (env,str) then
-      let ident = varString str in
+      let ident = _varString str in
       match pprintCode (incr indent) env t.body with (env,body) then
         match pprintCode indent env t.inexpr with (env,inexpr) then
           (env, join ["let ", ident, " =", newline (incr indent),
@@ -193,11 +195,11 @@ lang RecLetsPrettyPrint = RecLetsAst
   | TmRecLets t ->
     let lname = lam env. lam bind.
       match getStr bind.ident env with (env,str) then
-        (env,varString str)
+        (env,_varString str)
       else never in
     let lbody = lam env. lam bind.
       match pprintCode (incr (incr indent)) env bind.body with (env,str) then
-        (env,varString str)
+        (env,_varString str)
       else never in
     match mapAccumL lname env t.bindings with (env,idents) then
       match mapAccumL lbody env t.bindings with (env,bodies) then
@@ -235,7 +237,7 @@ lang DataPrettyPrint = DataAst
   sem pprintCode (indent : Int) (env: Env) =
   | TmConDef t ->
     match getStr t.ident env with (env,str) then
-      let str = conString str in
+      let str = _conString str in
       let tpe =
         match t.tpe with Some t1 then
           concat " : " (getTypeStringCode indent t1)
@@ -248,7 +250,7 @@ lang DataPrettyPrint = DataAst
 
   | TmConApp t ->
     match getStr t.ident env with (env,str) then
-      let l = conString str in
+      let l = _conString str in
       let i = if isAtomic t.body then incr indent else addi 1 (incr indent) in
       match pprintCode i env t.body with (env,r) then
         let str = if isAtomic t.body then r else join ["(", r, ")"] in
@@ -418,7 +420,7 @@ end
 
 let _pprint_patname: Env -> PatName -> (Env, String) = lam env. lam pname.
   match pname with PName name then
-    match getStr name env with (env, str) then (env, varString str) else never
+    match getStr name env with (env, str) then (env, _varString str) else never
   else match pname with PWildcard () then
     (env, "_")
   else never
@@ -475,7 +477,7 @@ lang RecordPatPrettyPrint = RecordPat
       assocMapAccum {eq=eqstr}
         (lam env. lam k. lam v.
            match getPatStringCode indent env v with (env,str) then
-             (env,join [labelString k, " = ", str])
+             (env,join [_labelString k, " = ", str])
            else never)
          env bindings
     with (env,bindMap) then
@@ -490,7 +492,7 @@ lang DataPatPrettyPrint = DataPat
   sem getPatStringCode (indent : Int) (env: Env) =
   | PCon t ->
     match getStr t.ident env with (env,str) then
-      let name = conString str in
+      let name = _conString str in
       match getPatStringCode indent env t.subpat with (env,subpat) then
         let subpat = if patIsAtomic t.subpat then subpat else join ["(", subpat, ")"]
         in (env, join [name, " ", subpat])
