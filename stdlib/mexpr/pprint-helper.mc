@@ -3,6 +3,7 @@ include "option.mc"
 include "seq.mc"
 include "string.mc"
 include "assoc.mc"
+include "name.mc"
 
 let pprintHelperSpacing = lam indent. makeSeq indent ' '
 let pprintHelperNewline = lam indent. concat "\n" (pprintHelperSpacing indent)

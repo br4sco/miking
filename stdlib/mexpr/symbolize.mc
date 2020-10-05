@@ -287,9 +287,6 @@ lang MExprSym =
   + VarPatSym + SeqTotPatSym + SeqEdgePatSym + RecordPatSym + DataPatSym +
   IntPatSym + CharPatSym + BoolPatSym + AndPatSym + OrPatSym + NotPatSym
 
-  -- Debugging
-  + MExprPrettyPrint
-
 -----------
 -- TESTS --
 -----------
@@ -297,9 +294,11 @@ lang MExprSym =
 -- of symbols, so we are just evaluating the below for errors. Unit
 -- testing in eval.mc also implicitly covers symbolize.
 
+lang MExprSymDebug = MExprSym + MExprPrettyPrint
+
 mexpr
 
-use MExprSym in
+use MExprSymDebug in
 
 let debug = false in
 

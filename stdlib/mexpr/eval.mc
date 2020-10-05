@@ -54,7 +54,7 @@ lang VarEval = VarAst
     match _evalLookup ident ctx.env with Some t then
       eval ctx t
     else
-      error (concat "Unknown variable: " (varString ident))
+      error (concat "Unknown variable: " (_varString ident))
 end
 
 lang AppEval = AppAst
