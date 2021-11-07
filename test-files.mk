@@ -60,6 +60,7 @@ compile_files_exclude += test/mlang/also_includes_lib.mc
 compile_files_exclude += test/mlang/mlang.mc
 compile_files_exclude += test/mlang/nestedpatterns.mc
 compile_files_exclude += test/mlang/catchall.mc
+compile_files_exclude += stdlib/multicore/thread.mc
 
 
 # Programs that we currently cannot interpret/test. These are programs written
