@@ -31,6 +31,9 @@ jobs:
         # Install dependencies of owl
         sudo apt-get install -y liblapacke-dev libopenblas-dev
 
+        # Install dependencies of sundials
+        sudo apt-get install -y libsundials-dev
+
         # Install all opam packages used in make test-all
         opam install -y dune linenoise pyml toml lwt owl ocamlformat.0.16.0
 
