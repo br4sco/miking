@@ -2,7 +2,7 @@ name: Miking CI
 
 on:
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, actions]
     types: [opened, reopened, synchronize]
 
 jobs:
