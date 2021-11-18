@@ -1,4 +1,4 @@
-# Miking
+# Miking PING
 
 Miking (Meta vIKING) is a meta language system for creating embedded domain-specific and general-purpose languages. Miking is not a programming language, but rather a language system for
 creating languages and generating efficient compilers.
