@@ -32,6 +32,7 @@ utest eqSeq eqi [] [1] with false
 utest eqSeq eqi [1] [1] with true
 utest eqSeq eqi [1] [2] with false
 utest eqSeq eqi [2] [1] with false
+utest eqSeq eqi [3] [1] with false
 
 -- Maps
 let mapOption
