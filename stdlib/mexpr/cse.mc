@@ -235,10 +235,16 @@ end
 
 lang RecordCSE = CSE + RecordAst
   sem cseSearchH (pos : ProgramPos) (env : CSESearchEnv) =
-  | record & (TmRecord _) -> cseCount pos env record
+  | record & (TmRecord r) ->
+    -- let env = mapFoldWithKey (lam env. lam. cseSearch pos env) env r.bindings in
+    cseCount pos env record
 
   sem cseApplyH (env : CSEApplyEnv) =
-  | record & (TmRecord _) -> cseReplace env record
+  | record & (TmRecord r) ->
+    -- match mapMapAccum (lam env. lam. lam v. cseApply env v) env r.bindings with
+    --   (env, bindings)
+    -- in
+    cseReplace env (TmRecord { r with bindings = r.bindings })
 end
 
 lang DataCSE = CSE + DataAst
@@ -416,6 +422,27 @@ let expected = preprocess (bindall_ [
   ulet_ "t" (urecord_ [("a", int_ 1), ("b", char_ 'x')]),
   ulet_ "x" (var_ "t"),
   ulet_ "y" (var_ "t"),
+  unit_
+]) in
+utest cse t with expected using eqExpr in
+
+let t = preprocess (bindall_ [
+  ulet_ "x" (utuple_ [
+    (urecord_ [("a", int_ 1), ("b", char_ 'x')]),
+    (urecord_ [("b", char_ 'x'), ("a", int_ 1)])
+  ]),
+  ulet_ "y" (utuple_ [
+    (urecord_ [("b", char_ 'x'), ("a", int_ 1)]),
+    (urecord_ [("a", int_ 1), ("b", char_ 'x')])
+  ]),
+  unit_
+]) in
+printLn (expr2str (cse t));
+let expected = preprocess (bindall_ [
+  ulet_ "t1" (urecord_ [("a", int_ 1), ("b", char_ 'x')]),
+  ulet_ "t2" (utuple_ [(var_ "t1"), (var_ "t1")]),
+  ulet_ "x" (var_ "t2"),
+  ulet_ "y" (var_ "t2"),
   unit_
 ]) in
 utest cse t with expected using eqExpr in
