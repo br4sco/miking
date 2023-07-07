@@ -349,6 +349,22 @@ let _test = lam expr.
   expr
 in
 
+let _testLite = lam expr.
+  logMsg logLevel.debug (lam.
+    strJoin "\n" [
+      "Before constantfold",
+      expr2str expr
+    ]);
+  let expr = symbolizeAllowFree expr in
+  match constantfoldLets expr with expr in
+  logMsg logLevel.debug (lam.
+    strJoin "\n" [
+      "After constantfold",
+      expr2str expr
+    ]);
+  expr
+in
+
 let _parse =
   parseMExprString
     { _defaultBootParserParseMExprStringArg () with allowFree = true }
@@ -682,7 +698,9 @@ lam x.
   "
 in
 
-utest _test prog with _parse "
+logSetLogLevel logLevel.debug;
+
+utest _testLite prog with _parse "
 let dh =
   lam x1.
     addf
