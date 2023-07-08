@@ -92,6 +92,23 @@ lang ConstantFold = ConstantFoldCtx + MExprSideEffect + MExprPrettyPrint
   sem constantfold : Expr -> Expr
   sem constantfold =| t -> constantfoldExpr (constantfoldCtxEmpty ()) t
 
+  sem constantfoldLets : Expr -> Expr
+  sem constantfoldLets =| t ->
+    let ctx = updateCtx (constantfoldCtxEmpty ()) t in
+    recursive let inner = lam t.
+      switch t
+      case TmVar r then
+        optionMapOr t inner (constantfoldEnvLookup r.ident ctx)
+      case TmLet r then
+        if optionIsSome (constantfoldEnvLookup r.ident ctx) then
+          inner r.inexpr
+        else smap_Expr_Expr inner t
+      case t then
+        smap_Expr_Expr inner t
+      end
+    in
+    inner t
+
   sem updateCtx : ConstantFoldCtx -> Expr -> ConstantFoldCtx
   sem updateCtx ctx =
   | t -> sfold_Expr_Expr updateCtx ctx t
