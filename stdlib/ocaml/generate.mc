@@ -547,6 +547,11 @@ lang OCamlGenerate = MExprAst + OCamlAst + OCamlTopGenerate + OCamlMatchGenerate
   -- very economical
     TmApp {{t with lhs = objMagic (generate env lhs)}
               with rhs = generate env rhs}
+  | TmApp {
+    lhs = TmConst (lr & {val = CNegf _}),
+    rhs = TmConst {val = CFloat rr}
+  } ->
+    TmConst { lr with val = CFloat { val = negf rr.val }}
   | TmNever t ->
     let msg = "Reached a never term, which should be impossible in a well-typed program." in
     TmApp {

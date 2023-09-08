@@ -177,7 +177,7 @@ lang OCamlPrettyPrint =
   | CDivi _ -> "Int.div"
   | CModi _ -> "Int.rem"
   | CNegi _ -> "Int.neg"
-  | CFloat {val = f} -> float2string f
+  | CFloat {val = f} -> join ["(", float2string f, ")"]
   | CAddf _ -> "Float.add"
   | CSubf _ -> "Float.sub"
   | CMulf _ -> "Float.mul"
