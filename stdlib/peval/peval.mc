@@ -144,34 +144,6 @@ lang VarPEval = PEval + VarAst + AppPEval
   | t & TmVar r -> ({ ctx with freeVar = setInsert r.ident ctx.freeVar }, t)
 end
 
-lang LamPEval = PEval + VarAst + LamAst + ClosAst + AppEval
-  sem pevalBindThis =
-  | TmClos _ -> false
-
-  sem pevalApply info ctx k =
-  | (TmClos r, arg) ->
-    let env = evalEnvInsert r.ident arg (r.env ()) in
-    pevalEval { ctx with env = env } k r.body
-
-  sem pevalEval ctx k =
-  | TmLam r ->
-    k (TmClos {
-      ident = r.ident, body = r.body, env = lam. ctx.env, info = r.info
-    })
-  | TmClos r -> k (TmClos r)
-
-  sem pevalReadbackH ctx =
-  | TmClos r ->
-    let b = astBuilder r.info in
-    let newident = nameSetNewSym r.ident in
-    let env = evalEnvInsert r.ident (b.var newident) (r.env ()) in
-    match
-      pevalReadbackH ctx (pevalBind { ctx with env = env } (lam x. x) r.body)
-      with (ctx, body)
-    in
-    (ctx, b.nulam newident body)
-end
-
 lang ClosPAst = ClosAst
   syn Expr =
   | TmClosP {
@@ -185,6 +157,45 @@ lang ClosPAst = ClosAst
 
   sem withInfo info =
   | TmClosP r -> TmClosP { r with cls = { r.cls with info = info } }
+end
+
+lang LamPEval = PEval + VarAst + LamAst + ClosPAst + AppEval
+  sem pevalBindThis =
+  | TmClosP _ -> false
+
+  sem pevalApply info ctx k =
+  | (TmClosP r, arg) ->
+    if and (not ctx.recFlag) r.isRecursive then
+      let b = astBuilder r.cls.info in k (b.app (b.var r.ident) arg)
+    else
+      let env = evalEnvInsert r.cls.ident arg (r.cls.env ()) in
+      pevalEval { ctx with env = env } k r.cls.body
+
+  sem pevalEval ctx k =
+  | TmLam r ->
+    let b = astBuilder r.info in
+    let cls =
+      { ident = r.ident, body = r.body, env = lam. ctx.env, info = r.info }
+    in
+    let newident = nameSetNewSym r.ident in
+    let env = evalEnvInsert r.ident (b.var newident) ctx.env in
+    -- match
+    --   pevalReadbackH
+    let body =
+      -- ctx
+        (pevalBind { ctx with env = env } (lam x. x) r.body)
+      -- with (_, body)
+    in
+    let ident = nameSym "t" in
+    bind_
+      (b.nulet ident (TmLam { r with ident = newident, body = body }))
+      (k (TmClosP { cls = cls, ident = ident, isRecursive = false }))
+  | TmClosP r -> k (TmClosP r)
+
+  sem pevalReadbackH ctx =
+  | TmClosP r ->
+    let b = astBuilder r.cls.info in
+    ({ ctx with freeVar = setInsert r.ident ctx.freeVar }, b.var r.ident)
 end
 
 lang LetPEval = PEval + LetAst
@@ -215,14 +226,40 @@ lang LetPEval = PEval + LetAst
         (inexprCtx, inexpr)
 end
 
--- NOTE(oerikss, 2023-08-14): We currently do not partially evaluate recursive
--- calls.
 lang RecLetsPEval = PEval + RecLetsAst + ClosPAst + LamAst
   sem pevalBindThis =
   | TmRecLets _ -> true
 
   sem pevalEval ctx k =
   | TmRecLets r ->
+    recursive let envPrime : Int -> Lazy EvalEnv = lam n. lam.
+      let wraplambda = lam bind.
+        if geqi n ctx.maxRecDepth then TmVar {
+          ident = bind.ident,
+          info = bind.info,
+          ty = bind.tyBody,
+          frozen = false
+        }
+        else
+          match bind.body with TmLam r then TmClosP {
+            cls = {
+              ident = r.ident,
+              body = r.body,
+              env = envPrime (succ n),
+              info = r.info
+            },
+            ident = bind.ident,
+            isRecursive = true
+          }
+          else
+            errorSingle [infoTm bind.body]
+              "Right-hand side of recursive let must be a lambda"
+      in
+      foldl
+        (lam env. lam bind.
+          evalEnvInsert bind.ident (wraplambda bind) env)
+        ctx.env r.bindings
+    in
     let bindings =
       map
         (lam bind. { bind with body = pevalBind ctx (lam x. x) bind.body })
@@ -231,10 +268,10 @@ lang RecLetsPEval = PEval + RecLetsAst + ClosPAst + LamAst
     TmRecLets {
       r with
       bindings = bindings,
-      inexpr = pevalBind ctx k r.inexpr
+      inexpr = pevalBind { ctx with env = envPrime 0 () } k r.inexpr
     }
 
-    sem pevalReadbackH ctx =
+  sem pevalReadbackH ctx =
   | TmRecLets r ->
     let fv = setOfSeq nameCmp (map (lam bind. bind.ident) r.bindings) in
     match pevalReadbackH ctx r.inexpr with (inexprCtx, inexpr) in
