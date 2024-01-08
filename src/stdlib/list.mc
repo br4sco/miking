@@ -102,6 +102,26 @@ let listFilter : all a. (a -> Bool) -> List a -> List a = lam p. lam li.
 let listConcat : all a. List a -> List a -> List a = lam lhs. lam rhs.
   listFoldl (lam acc. lam x. listCons x acc) rhs (listReverse lhs)
 
+let listNth : all a. Int -> List a -> Option a = lam i. lam li.
+  recursive let nth = lam x.
+    switch x
+    case (_, Nil _) then None ()
+    case (0, (Cons (x, _))) then Some x
+    case (i, Cons (_, li)) then nth (subi i 1, li)
+    end
+  in
+  if lti i 0 then None ()
+  else nth (i, li)
+
+let listIndex : all a. (a -> Bool) -> List a -> Option Int = lam p. lam li.
+  recursive let index = lam i. lam li.
+    switch li
+    case Nil _ then None ()
+    case Cons (x, li) then if p x then Some i else index (addi i 1) li
+    end
+  in
+  index 0 li
+
 mexpr
 
 let l1 = listEmpty in
