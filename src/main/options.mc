@@ -42,7 +42,8 @@ let optionsDefault : Options = {
   tuneOptions = tuneOptionsDefault,
   mlangPipeline = false,
   experimentalRecords = false,
-  disableStrictSumExtension = false
+  disableStrictSumExtension = false,
+  unsafeEval = false
 }
 
 -- Get the help string for options

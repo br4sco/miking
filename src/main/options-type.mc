@@ -40,5 +40,6 @@ type Options = {
   tuneOptions : TuneOptions,
   mlangPipeline : Bool,
   experimentalRecords : Bool,
-  disableStrictSumExtension : Bool
+  disableStrictSumExtension : Bool,
+  unsafeEval : Bool
 }

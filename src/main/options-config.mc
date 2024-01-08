@@ -135,6 +135,10 @@ let optionsConfig : ParseConfig Options = [
     "Disable JavaScript tail-call optimizations",
     lam p: ArgPart Options.
       let o: Options = p.options in {o with disableJsTCO = true}),
+  ([("--unsafe-eval", "", "")],
+    "Use experimental fast evaluator",
+    lam p: ArgPart Options.
+      let o: Options = p.options in {o with unsafeEval = true}),
   ([("--output", " ", "<file>")],
     "Write output to <file> when compiling",
     lam p: ArgPart Options.
