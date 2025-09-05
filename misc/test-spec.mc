@@ -635,9 +635,9 @@ let testMain : [TestCollection] -> () = lam colls.
           (switch _minER tasks.run tasks.interpret
            case Dont _ then ()
            case Fail _ then
-             run.f {input = src, cmd = "%m eval --disable-prune-utests --test %i", tag = "eval"}
+             run.f {input = src, cmd = "%m eval --unsafe-eval --disable-prune-utests --test %i", tag = "eval"}
            case Success _ then
-             run.e {input = src, cmd = "%m eval --disable-prune-utests --test %i", tag = "eval"}
+             run.e {input = src, cmd = "%m eval --unsafe-eval --disable-prune-utests --test %i", tag = "eval"}
            end)
         end
     in
