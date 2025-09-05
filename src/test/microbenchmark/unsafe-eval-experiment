@@ -1,0 +1,44 @@
+#! /usr/bin/env fish
+
+function run_benchmarks
+    set -l iterations $argv[1]
+    set -l timeout $argv[2]
+    set -l benchmarks $argv[3..-1]
+    echo "--- run with iterations: $iterations ---"
+    echo ""
+    for b in $benchmarks;
+        echo $b;
+        ./run -i $iterations -e 457 -t $timeout $b;
+        echo "";
+    end
+    echo "--- done ---"
+    echo ""
+end
+
+set -l very_fast_benchmarks \
+    factorial \
+    split_list \
+    split_rope \
+    tree
+
+set -l fast_benchmarks \
+    iter_list \
+    iter_rope
+
+set -l slow_benchmarks \
+    fold_list \
+    fold_native_rope \
+    fold_rope \
+    map_list \
+    mapReverse_list \
+    map_rope
+
+set -l very_slow_benchmarks \
+    fold_native_list \
+    map_native_list \
+    map_native_rope
+
+run_benchmarks 10000 20 $very_fast_benchmarks
+run_benchmarks 1000 20 $fast_benchmarks
+run_benchmarks 100 20 $slow_benchmarks
+run_benchmarks 10 20 $very_slow_benchmarks

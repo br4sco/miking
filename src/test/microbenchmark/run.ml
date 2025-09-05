@@ -21,11 +21,11 @@ let speclist =
   ; ( "-e"
     , Arg.String (fun e -> excludes := Some e)
     , "Tests to excludes,\n\
-      \ e.g. -e 25 exlcudes tests 2 and 5 (the Miking interpreter and OCaml \
+      \ e.g. -e 26 exlcudes tests 2 and 5 (the Miking interpreter and OCaml \
        byte code tests)" )
   ; ( "-t"
     , Arg.Int (fun t -> timeout := Some t)
-    , "Number of iterations to run for each benchmark" ) ]
+    , "Timout in seconds for each benchmark" ) ]
 
 let measure excludes number str pre_cmd cmd post_cmd timeout =
   (* printf "\n\npre_cmd: %s\ncmd: %s\npost_cmd: %s\n" pre_cmd cmd post_cmd ; *)
@@ -64,7 +64,7 @@ let generate_dune name =
     \          (ocamlc_flags (-without-runtime))))\n\n\
     \      (executable\n\
     \         (name %s)\n\
-    \         (libraries str owl)\n\
+    \         (libraries str)\n\
     \         (modes byte exe))" name ;
   close_out oc
 
@@ -89,28 +89,31 @@ let main =
            let name_mc = name ^ ".mc" in
            if Sys.file_exists name_mc then (
              measure excludes 1 "Boot interpreter:     " ""
-               ("boot eval " ^ name_mc ^ " -- " ^ iterations)
+               ("mi-boot eval " ^ name_mc ^ " -- " ^ iterations)
                "" timeout ;
              measure excludes 2 "Miking interpreter:   " ""
                ("mi eval " ^ name_mc ^ " -- " ^ iterations)
                "" timeout ;
-             measure excludes 3 "Miking compiler:      "
+             measure excludes 3 "Miking u-interpreter: " ""
+               ("mi eval --unsafe-eval " ^ name_mc ^ " -- " ^ iterations)
+               "" timeout ;
+             measure excludes 4 "Miking compiler:      "
                ("mi compile " ^ name_mc)
                ("./" ^ name ^ " " ^ iterations)
                ("rm -f " ^ name) timeout ;
-             measure excludes 4 "Miking compiler (opt):"
+             measure excludes 5 "Miking compiler (opt):"
                ("mi compile --enable-constant-fold " ^ name_mc)
                ("./" ^ name ^ " " ^ iterations)
                ("rm -f " ^ name) timeout ;
              if Sys.file_exists (name ^ ".ml") then
                ( generate_dune name ;
                  generate_dune_project () ;
-                 measure excludes 5 "Ocaml byte code       "
+                 measure excludes 6 "Ocaml byte code       "
                    ("dune build --root ." ^ " " ^ name ^ ".bc")
                    ( "ocamlrun _build/default/" ^ name ^ ".bc" ^ " "
                    ^ iterations )
                    "rm -rf _build" timeout ;
-                 measure excludes 6 "OCaml native:         "
+                 measure excludes 7 "OCaml native:         "
                    ("dune build --root ." ^ " " ^ name ^ ".exe")
                    ("./_build/default/" ^ name ^ ".exe" ^ " " ^ iterations)
                    "rm -rf _build && rm dune*" )
