@@ -1,4 +1,4 @@
--- include "avl.mc"
+include "avl.mc"
 
 mexpr
 -- let u = addi 1 5 in

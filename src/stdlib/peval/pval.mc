@@ -152,8 +152,8 @@ lang PEInterface = MExprAst + ConstAst + SideEffect + Eval
   sem pEAppDescicionHeuristics state cls =| args ->
     if cls.fix then
       let isStatic = lam val. match val with PEStatic _ then true else false in
-      -- any isStatic args
-      false
+      any isStatic args
+      -- false
     else true
 end
 
@@ -746,6 +746,7 @@ lang PE = PEInterface +
   sem pESpecializeDeclM : Info -> Decl -> SpecM PEEnv
   sem pESpecializeDeclM info =
   | decl & DeclRecLets r -> _bind _ask (lam env.
+    let freshidents = map (lam bind. nameSetNewSym bind.ident) r.bindings in
     recursive let buildenv = lam.
       let wraplambda = lam ident. lam tm.
         match pECanonicalize tm with TmLam lamr then
@@ -757,21 +758,21 @@ lang PE = PEInterface +
                            fix = true })
         else error "fail"
       in
-      foldl (lam env. lam bind.
-        listCons (bind.ident, wraplambda bind.ident bind.body) env)
-        env r.bindings
+      foldl2 (lam env. lam bind. lam freshident.
+        listCons (bind.ident, wraplambda freshident bind.body) env)
+        env r.bindings freshidents
     in
     let specBindingBody : PEEnv -> Expr -> StateM PEState Expr = lam env. lam body.
       smBind smGet (lam s.
         match _run (pESpecializeExprM body) env s with (s2, decls, val) in
         smBind (smPut s2) (lam. pEGeneralizeM decls val)) in
     match
-      mapAccumL (lam acc. lam bind.
-        let freshident = nameSetNewSym bind.ident in
+      mapAccumL (lam acc. lam t.
+        match t with (bind, freshident) in
         let env =
           listCons (bind.ident, _pEVar bind.info bind.tyBody freshident) env in
         (env, { bind with ident = freshident }))
-        ([], env) r.bindings
+        env (zip r.bindings freshidents)
       with (env2, bindings) in
     _bind _get (lam s.
       match
