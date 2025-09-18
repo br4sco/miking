@@ -13,6 +13,8 @@ let listNil : all a. List a -> Bool = lam li.
 
 let listCons : all a. a -> List a -> List a = lam e. lam li. Cons (e, li)
 
+let listSingleton : all a. a -> List a = lam x. listCons x listEmpty
+
 let listFind : all a. (a -> Bool) -> List a -> Option a = lam p. lam li.
   recursive let find = lam li.
     switch li

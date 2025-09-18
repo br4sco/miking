@@ -681,7 +681,7 @@ type PEvalLetInlineOrRemove
 con PEvalLetInline : () -> PEvalLetInlineOrRemove
 con PEvalLetRemove : () -> PEvalLetInlineOrRemove
 
-lang PEvalLetInline = LetDeclAst + SideEffect + VarAst
+lang PEvalLetInline = LetDeclAst + RecLetsDeclAst + SideEffect + VarAst
   -- Inlines let-bindings that are only referred to once in the expression, and
   -- removes unused let-bindings. Assumes unique let-binding identifiers.
   sem pevalInlineLets : SideEffectEnv -> Expr -> Expr
@@ -702,6 +702,16 @@ lang PEvalLetInline = LetDeclAst + SideEffect + VarAst
             let body = subs marked env r.body in
             subs marked (mapInsert r.ident body env) x.inexpr
           end
+        case TmDecl (x & {decl = DeclRecLets r}) then
+          let pred = lam b.
+            match mapLookup b.ident marked with Some (PEvalLetRemove _)
+            then false else true in
+          let bindings = filter pred r.bindings in
+          if null bindings then subs marked env x.inexpr
+          else
+            let r = { r with bindings = bindings } in
+            smap_Expr_Expr (subs marked env)
+              (TmDecl { x with decl = DeclRecLets r })
         case t then smap_Expr_Expr (subs marked env) t
         end
     in
@@ -711,6 +721,8 @@ lang PEvalLetInline = LetDeclAst + SideEffect + VarAst
           Expr ->
             (Map Name Int, Map Name PEvalLetInlineOrRemove)
         = lam acc. lam t.
+          let countIdents = lam inexprCount. lam ident.
+            mapFindOrElse (lam. 0) ident inexprCount in
           match acc with (count, subsEnv) in
           switch t
           case TmVar r then (mapInsertWith addi r.ident 1 count, subsEnv)
@@ -719,10 +731,10 @@ lang PEvalLetInline = LetDeclAst + SideEffect + VarAst
               sfold_Expr_Expr mark acc t
             else
               match mark acc x.inexpr with (inexprCount, subsEnv) in
-              let identCount = mapFindOrElse (lam. 0) r.ident inexprCount in
+              let identCount = countIdents inexprCount r.ident in
               if gti identCount 0 then
                 -- This body IS NOT dead but we might substitute its identifier
-                -- for it
+                -- for it.
                 match mark (inexprCount, subsEnv) r.body
                   with (count, subsEnv)
                 in
@@ -731,8 +743,26 @@ lang PEvalLetInline = LetDeclAst + SideEffect + VarAst
                 else
                   (count, subsEnv)
               else
-                -- This body IS dead
+                -- This body IS dead.
                 (inexprCount, mapInsert r.ident (PEvalLetRemove ()) subsEnv)
+          case TmDecl (x & {decl = DeclRecLets r}) then
+            match mark acc x.inexpr with (inexprCount, subsEnv) in
+            let countIdents = countIdents inexprCount in
+            -- If any recursive bindings is used, keep them all.
+            let identCount =
+              foldl addi 0 (map (lam b. countIdents b.ident) r.bindings) in
+            if gti identCount 0 then
+              foldl (lam acc. lam b. mark acc b.body)
+                (inexprCount, subsEnv) r.bindings
+            else
+              -- All bindings are dead, mark them all for removal.
+              let subsEnv =
+                foldl
+                  (lam subsEnv. lam b.
+                    mapInsert b.ident (PEvalLetRemove ()) subsEnv)
+                  subsEnv
+                  r.bindings in
+              (inexprCount, subsEnv)
           case t then sfold_Expr_Expr mark acc t
           end
     in
