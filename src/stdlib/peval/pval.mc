@@ -149,7 +149,7 @@ lang PEInterface = MExprAst + ConstAst + SideEffect + Eval
   sem pESpecialize : Expr -> Expr
   sem pECanonicalize : Expr -> Expr
 
-  sem pEAppDescicionHeuristics state cls =| args ->
+  sem pEAppDecisionHeuristics state cls =| args ->
     if cls.fix then
       let isStatic = lam val. match val with PEStatic _ then true else false in
       any isStatic args
@@ -628,8 +628,8 @@ lang PE = PEInterface +
         _return (PEStatic (SNever { ty = r.ty, info = r.info }))
       else
         _bind2 (_letBindAllClss r.info target) _get (lam target. lam s.
-          switch pETryMatch (Match listEmpty) target r.pat
-          case Match env3 then
+          switch pETryMatch (StaticMatch listEmpty) target r.pat
+          case StaticMatch env3 then
             match _refreshPatNames env r.pat with (env2, pat) in
             -- Shadow refreshed pattern names with matches
             let env2 = listConcat env3 env2 in
@@ -639,13 +639,12 @@ lang PE = PEInterface +
             _bind2 (_put s2) (_record decls) (lam. lam. _return thn)
           case StaticNoMatch _ then
             pESpecializeExprM r.els
-          case m & (PartialMatch _ | DynamicMatch _) then
+          case m & PartialMatch penv then
             let dropCache = lam s2. { s2 with cache = s.cache } in
 
             match _refreshPatNames env r.pat with (env2, pat) in
             -- Shadow refreshed pattern names with matches
-            let env2 = match m with PartialMatch env3 then listConcat env3 env2
-                       else env2 in
+            let env2 = listConcat penv env2 in
 
             match _run (pESpecializeExprM r.thn) env2 s with (s2, decls, thn) in
             match smRun (pEGeneralizeM decls thn) s2 with (s3, thn) in
@@ -681,7 +680,7 @@ lang PE = PEInterface +
       case _ then _letBindAllClss info rhs
       end in
     _bind rhs2 (lam rhs.
-      let residualizeApp = lam lhs.
+      let generalizeApp = lam lhs.
         _bind2 (pEGeneralizeValM lhs) (pEGeneralizeValM rhs)
           (lam lhs. lam rhs.
             _letBindExpr info tyunknown_
@@ -694,7 +693,7 @@ lang PE = PEInterface +
       switch lhs
       case DVar _ then
         -- We cannot apply a dynamic LHS.
-        residualizeApp lhs
+        generalizeApp lhs
       case PEStatic (SConst sc) then
         -- We evaluate fully applied intrinsics functions.
         let sc2 = { sc with args = snoc sc.args (rhs, info) } in
@@ -728,18 +727,9 @@ lang PE = PEInterface +
           in
           _bind2 (_updateCalltrace ident args)
             _get (lam. lam s.
-              if pEAppDescicionHeuristics s cls args then
-                _bind (specBody env cls.lamr.body) (lam retval.
-                  -- If the result of the application is another closure we
-                  -- need to let-bind it.
-                  match retval with PEStatic (SCls retcls) then
-                    let ident2 =
-                      nameSym (join [nameGetStr ident, "_spec"]) in
-                    _map (lam v. PEStatic v)
-                      (_letBindCls info {
-                        retcls with ident = Some ident2 })
-                  else _return retval)
-              else residualizeApp lhs)
+              if pEAppDecisionHeuristics s cls args then
+                specBody env cls.lamr.body
+              else generalizeApp lhs)
       case _ then error "pESpecializeExprM: Application Type Error"
       end)
 
@@ -794,15 +784,14 @@ lang PE = PEInterface +
     _bind (_record [(decl, info)]) (lam. _ask)
 
   syn MatchResult =
-  | Match PEEnv
+  | StaticMatch PEEnv
   | StaticNoMatch ()
   | PartialMatch PEEnv
-  | DynamicMatch ()
 
   sem pETryMatch : MatchResult -> PEVal -> Pat -> MatchResult
   sem pETryMatch mr val =
   | PatNamed {ident = PName name} ->
-    _andMR (mr, Match (listSingleton (name, val)))
+    _andMR (mr, StaticMatch (listSingleton (name, val)))
   | PatNamed {ident = PWildcard _} -> mr
   | pat & PatSeqTot {pats = pats} ->
     switch val
@@ -810,7 +799,7 @@ lang PE = PEInterface +
       if eqi (length r.vals) (length pats) then
         foldl2 pETryMatch mr r.vals pats
       else StaticNoMatch ()
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | pat & PatSeqEdge {prefix = pre, middle = middle, postfix = post} ->
     switch val
@@ -823,11 +812,12 @@ lang PE = PEInterface +
           foldl2 pETryMatch mr (concat preVals postVals) (concat pre post) in
         switch middle
         case PName name then
-          _andMR (mr, Match (listSingleton (name, DSeq { r with vals = vals })))
+          _andMR
+            (mr, StaticMatch (listSingleton (name, DSeq { r with vals = vals })))
         case PWildcard _ then mr
         end
       else StaticNoMatch ()
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | pat & PatRecord {bindings = bs} ->
     switch val
@@ -839,7 +829,7 @@ lang PE = PEInterface +
           pETryMatch mr val pat)
         mr
         bs
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | pat & PatCon {ident = ident, subpat = subpat, info = info} ->
     switch val
@@ -847,42 +837,42 @@ lang PE = PEInterface +
       if nameEqSymUnsafe ident r.ident then
         pETryMatch mr r.body subpat
       else StaticNoMatch ()
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | PatInt i ->
     switch val
     case PEStatic (SConst {c = {val = CInt r}}) then
       if eqi i.val r.val then mr
       else StaticNoMatch ()
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | PatChar ch ->
     switch val
     case PEStatic (SConst {c = {val = CChar r}}) then
       if eqc ch.val r.val then mr
       else StaticNoMatch ()
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | PatBool b ->
     switch val
     case PEStatic (SConst {c = {val = CBool r}}) then
       if xnor b.val r.val then mr
       else StaticNoMatch ()
-    case _ then _andMR (mr, DynamicMatch ())
+    case _ then _andMR (mr, PartialMatch listEmpty)
     end
   | PatAnd {lpat = l, rpat = r} ->
     pETryMatch (pETryMatch mr val l) val r
   | PatOr {lpat = l, rpat = r} ->
-    switch  pETryMatch (Match listEmpty) val l
-    case Match env then _andMR (mr, Match env)
+    switch  pETryMatch (StaticMatch listEmpty) val l
+    case StaticMatch env then _andMR (mr, StaticMatch env)
     case StaticNoMatch _ then pETryMatch mr val r
-    case PartialMatch _ | DynamicMatch _ then _andMR (mr, DynamicMatch ())
+    case PartialMatch e then _andMR (mr, PartialMatch e)
     end
   | PatNot {subpat = p} ->
-    switch pETryMatch (Match listEmpty) val p
-    case Match _ then StaticNoMatch ()
+    switch pETryMatch (StaticMatch listEmpty) val p
+    case StaticMatch _ then StaticNoMatch ()
     case StaticNoMatch _ then mr
-    case PartialMatch _ | DynamicMatch _ then _andMR (mr, DynamicMatch ())
+    case PartialMatch _ then _andMR (mr, PartialMatch listEmpty)
     end
 
   sem _pEbv i =| b -> PEStatic (SConst {
@@ -1001,14 +991,10 @@ lang PE = PEInterface +
 
   sem _andMR : (MatchResult, MatchResult) -> MatchResult
   sem _andMR =
-  | (Match e1, Match e2) -> Match (listConcat e1 e2)
+  | (StaticMatch e1, StaticMatch e2) -> StaticMatch (listConcat e1 e2)
   | (PartialMatch e1, PartialMatch e2)
-  | (PartialMatch e1, Match e2)
-  | (Match e1, PartialMatch e2) -> PartialMatch (listConcat e1 e2)
-  | (Match e, DynamicMatch _)
-  | (DynamicMatch _, Match e) -> PartialMatch e
-  | (PartialMatch e, DynamicMatch _)
-  | (DynamicMatch _, PartialMatch e) -> PartialMatch e
+  | (PartialMatch e1, StaticMatch e2)
+  | (StaticMatch e1, PartialMatch e2) -> PartialMatch (listConcat e1 e2)
   | (_, StaticNoMatch _)
   | (StaticNoMatch _, _) -> StaticNoMatch ()
 
