@@ -757,7 +757,7 @@ lang PE = PEInterface +
         match _run (pESpecializeExprM body) env s with (s2, decls, val) in
         smBind (smPut s2) (lam. pEGeneralizeM decls val)) in
     match
-      mapAccumL (lam acc. lam t.
+      mapAccumL (lam env. lam t.
         match t with (bind, freshident) in
         let env =
           listCons (bind.ident, _pEVar bind.info bind.tyBody freshident) env in
